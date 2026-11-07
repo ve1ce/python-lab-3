@@ -1,4 +1,6 @@
 import sys
+from app.ui.pages.dashboard import DashboardPage
+from app.ui.pages.vocabulary import VocabularyPage
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -79,7 +81,15 @@ class MainWindow(QMainWindow):
             sidebar_layout.addWidget(button)
 
             # Страница раздела
-            page = self.create_page(title, description)
+            if index == 0:
+                page = DashboardPage()
+
+            elif index == 1:
+                page = VocabularyPage()
+
+            else:
+                page = self.create_page(title, description)
+
             self.pages.addWidget(page)
 
             # Первая кнопка активна
