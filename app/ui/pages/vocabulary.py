@@ -234,6 +234,9 @@ class VocabularyPage(QWidget):
         table_layout.addLayout(bottom_layout)
 
         layout.addWidget(table_card, 1)
+        
+    def get_words(self):
+        return [item.copy() for item in self.words]
 
     def add_word(self):
 

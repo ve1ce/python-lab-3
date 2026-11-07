@@ -1,6 +1,7 @@
 import sys
 from app.ui.pages.dashboard import DashboardPage
 from app.ui.pages.vocabulary import VocabularyPage
+from app.ui.pages.practice import PracticePage
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -85,7 +86,13 @@ class MainWindow(QMainWindow):
                 page = DashboardPage()
 
             elif index == 1:
-                page = VocabularyPage()
+                self.vocabulary_page = VocabularyPage()
+                page = self.vocabulary_page
+
+            elif index == 2:
+                page = PracticePage(
+                    self.vocabulary_page.get_words
+                )
 
             else:
                 page = self.create_page(title, description)
