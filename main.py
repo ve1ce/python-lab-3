@@ -2,6 +2,10 @@ import sys
 from app.ui.pages.dashboard import DashboardPage
 from app.ui.pages.vocabulary import VocabularyPage
 from app.ui.pages.practice import PracticePage
+from app.services.activity_log import ActivityLog
+from app.ui.pages.history import HistoryPage
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMessageBox
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -26,8 +30,11 @@ class MainWindow(QMainWindow):
         self.resize(1100, 700)
         self.setMinimumSize(850, 550)
 
+        self.activity_log = ActivityLog()
+
         self.setup_ui()
         self.setup_styles()
+        self.setup_menu()
 
     def setup_ui(self):
 
@@ -70,6 +77,11 @@ class MainWindow(QMainWindow):
             ("История", "Здесь будет отображаться история активности.")
         ]
 
+        # Создаём словарь заранее
+        self.vocabulary_page = VocabularyPage(
+            self.activity_log
+        )
+
         for index, (title, description) in enumerate(sections):
 
             # Кнопка навигации
@@ -81,20 +93,33 @@ class MainWindow(QMainWindow):
             self.nav_group.addButton(button, index)
             sidebar_layout.addWidget(button)
 
-            # Страница раздела
+            # Создание страниц
             if index == 0:
-                page = DashboardPage()
+
+                page = DashboardPage(
+                    self.vocabulary_page.get_words,
+                    self.activity_log
+                )
 
             elif index == 1:
-                self.vocabulary_page = VocabularyPage()
+
                 page = self.vocabulary_page
 
             elif index == 2:
+
                 page = PracticePage(
-                    self.vocabulary_page.get_words
+                    self.vocabulary_page.get_words,
+                    self.activity_log
+                )
+
+            elif index == 3:
+
+                page = HistoryPage(
+                    self.activity_log
                 )
 
             else:
+
                 page = self.create_page(title, description)
 
             self.pages.addWidget(page)
@@ -205,6 +230,79 @@ class MainWindow(QMainWindow):
             }
 
         """)
+
+    def setup_menu(self):
+
+        # Меню "Файл"
+        file_menu = self.menuBar().addMenu("Файл")
+
+        exit_action = QAction("Выход", self)
+        exit_action.setShortcut("Ctrl+Q")
+
+        exit_action.triggered.connect(
+            self.close
+        )
+
+        file_menu.addAction(exit_action)
+
+        # Меню "Справка"
+        help_menu = self.menuBar().addMenu("Справка")
+
+        about_action = QAction("О программе", self)
+
+        about_action.triggered.connect(
+            self.show_about
+        )
+
+        help_menu.addAction(about_action)
+
+        # Оформление меню
+        self.menuBar().setStyleSheet("""
+
+            QMenuBar {
+                background-color: #ffffff;
+                border-bottom: 1px solid #e5e7eb;
+                padding: 4px;
+                color: #374151;
+            }
+
+            QMenuBar::item {
+                padding: 6px 12px;
+                background-color: transparent;
+            }
+
+            QMenuBar::item:selected {
+                background-color: #e8eef7;
+                border-radius: 4px;
+            }
+
+            QMenu {
+                background-color: #ffffff;
+                border: 1px solid #e5e7eb;
+                color: #374151;
+            }
+
+            QMenu::item {
+                padding: 7px 25px;
+            }
+
+            QMenu::item:selected {
+                background-color: #e8eef7;
+            }
+
+        """)
+
+    def show_about(self):
+
+        QMessageBox.about(
+            self,
+            "О программе",
+            "Приложение для изучения иностранных языков\n\n"
+            "Лабораторная работа №3\n"
+            "Работа с графическим интерфейсом на Python\n\n"
+            "Технологии: Python, PySide6, Matplotlib.\n\n"
+            "Версия: 1.0"
+        )
 
 
 if __name__ == "__main__":

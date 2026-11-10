@@ -16,11 +16,11 @@ from PySide6.QtWidgets import (
 
 class PracticePage(QWidget):
 
-    def __init__(self, get_words):
+    def __init__(self, get_words, activity_log):
         super().__init__()
 
-        # Функция для получения слов из словаря
         self.get_words = get_words
+        self.activity_log = activity_log
 
         # Данные текущей тренировки
         self.questions = []
@@ -440,9 +440,16 @@ class PracticePage(QWidget):
 
         total = len(self.questions)
 
+        # Показываем результат
         self.result_label.setText(
             f"Правильных ответов: "
             f"{self.correct_answers} из {total}"
+        )
+
+        # Записываем результат в историю
+        self.activity_log.add_event(
+            "Завершена тренировка",
+            f"Правильных ответов: {self.correct_answers} из {total}"
         )
 
         self.quiz_card.hide()

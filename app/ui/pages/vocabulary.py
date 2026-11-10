@@ -20,8 +20,10 @@ from app.exceptions import VocabularyValidationError
 
 class VocabularyPage(QWidget):
 
-    def __init__(self):
+    def __init__(self, activity_log):
         super().__init__()
+
+        self.activity_log = activity_log
 
         # Демонстрационные данные
         self.words = [
@@ -234,7 +236,7 @@ class VocabularyPage(QWidget):
         table_layout.addLayout(bottom_layout)
 
         layout.addWidget(table_card, 1)
-        
+
     def get_words(self):
         return [item.copy() for item in self.words]
 
@@ -265,6 +267,12 @@ class VocabularyPage(QWidget):
             "translation": translation
         })
 
+        # Записываем действие в историю
+        self.activity_log.add_event(
+            "Добавлено слово",
+            f"{word} — {translation}"
+        )
+
         self.word_input.clear()
         self.translation_input.clear()
 
@@ -288,12 +296,19 @@ class VocabularyPage(QWidget):
         row = selected_rows[0].row()
 
         word = self.table.item(row, 0).text()
+        translation = self.table.item(row, 1).text()
 
         # Удаление записи из списка
         self.words = [
             item for item in self.words
             if item["word"].casefold() != word.casefold()
         ]
+
+        # Записываем удаление в историю
+        self.activity_log.add_event(
+            "Удалено слово",
+            f"{word} — {translation}"
+        )
 
         self.refresh_table()
 
