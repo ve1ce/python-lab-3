@@ -2,8 +2,7 @@ import sqlite3
 
 from contextlib import closing
 
-from app.database.connection import initialize_database
-from app.database.vocabulary_repository import VocabularyRepository
+from app.database import VocabularyRepository, initialize_database
 
 
 def test_database_tables_created(db_path):

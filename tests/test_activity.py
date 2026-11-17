@@ -4,9 +4,8 @@ from datetime import datetime
 
 import pytest
 
-from app.models.activity import ActivityEvent
-from app.database.activity_repository import ActivityRepository
-from app.services.activity_log import ActivityLog
+from app.database import ActivityEvent, ActivityRepository
+from app.services import ActivityLog
 
 
 def test_empty_activity_history(db_path):

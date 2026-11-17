@@ -1,8 +1,7 @@
 import pytest
 
-from app.database.connection import initialize_database
-from app.database.vocabulary_repository import VocabularyRepository
-from app.services.vocabulary_service import VocabularyService
+from app.database import VocabularyRepository, initialize_database
+from app.services import VocabularyService
 
 
 @pytest.fixture

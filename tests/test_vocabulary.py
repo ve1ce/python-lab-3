@@ -1,9 +1,8 @@
 import pytest
 
+from app.database import VocabularyRepository
 from app.exceptions import VocabularyValidationError
-
-from app.database.vocabulary_repository import VocabularyRepository
-from app.services.vocabulary_service import VocabularyService
+from app.services import VocabularyService
 
 
 def test_initial_words(vocabulary_service):
