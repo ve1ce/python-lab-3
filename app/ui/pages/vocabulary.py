@@ -20,22 +20,11 @@ from app.exceptions import VocabularyValidationError
 
 class VocabularyPage(QWidget):
 
-    def __init__(self, activity_log):
+    def __init__(self, activity_log, vocabulary_service):
         super().__init__()
 
         self.activity_log = activity_log
-
-        # Демонстрационные данные
-        self.words = [
-            {"word": "apple", "translation": "яблоко"},
-            {"word": "book", "translation": "книга"},
-            {"word": "friend", "translation": "друг"},
-            {"word": "journey", "translation": "путешествие"},
-            {"word": "learn", "translation": "учить"},
-            {"word": "weather", "translation": "погода"},
-            {"word": "beautiful", "translation": "красивый"},
-            {"word": "practice", "translation": "практика"}
-        ]
+        self.vocabulary_service = vocabulary_service
 
         self.setup_ui()
         self.setup_styles()
@@ -238,53 +227,51 @@ class VocabularyPage(QWidget):
         layout.addWidget(table_card, 1)
 
     def get_words(self):
-        return [item.copy() for item in self.words]
+        return self.vocabulary_service.get_words()
 
     def add_word(self):
 
-        word = self.word_input.text().strip()
-        translation = self.translation_input.text().strip()
+        word = self.word_input.text()
+        translation = self.translation_input.text()
 
         try:
-            if not word or not translation:
-                raise VocabularyValidationError(
-                    "Заполните оба поля"
-                )
-
-            for item in self.words:
-                if item["word"].casefold() == word.casefold():
-                    raise VocabularyValidationError(
-                        "Такое слово уже есть в словаре"
-                    )
+            # Добавляем слово через сервис
+            saved_word = self.vocabulary_service.add_word(
+                word,
+                translation
+            )
 
         except VocabularyValidationError as error:
-            self.show_feedback(str(error), is_error=True)
+
+            self.show_feedback(
+                str(error),
+                is_error=True
+            )
             return
 
-        # Добавление новой записи
-        self.words.append({
-            "word": word,
-            "translation": translation
-        })
-
-        # Записываем действие в историю
+        # Записываем успешное действие в историю
         self.activity_log.add_event(
             "Добавлено слово",
-            f"{word} — {translation}"
+            f"{saved_word['word']} — {saved_word['translation']}"
         )
 
+        # Очищаем поля
         self.word_input.clear()
         self.translation_input.clear()
-
-        # Сбрасываем поиск и обновляем таблицу
         self.search_input.clear()
+
+        # Обновляем таблицу
         self.refresh_table()
 
-        self.show_feedback("Слово успешно добавлено")
+        self.show_feedback(
+            "Слово успешно добавлено"
+        )
 
     def delete_word(self):
 
-        selected_rows = self.table.selectionModel().selectedRows()
+        selected_rows = (
+            self.table.selectionModel().selectedRows()
+        )
 
         if not selected_rows:
             self.show_feedback(
@@ -293,43 +280,62 @@ class VocabularyPage(QWidget):
             )
             return
 
+        # Получаем выбранную строку
         row = selected_rows[0].row()
 
         word = self.table.item(row, 0).text()
         translation = self.table.item(row, 1).text()
 
-        # Удаление записи из списка
-        self.words = [
-            item for item in self.words
-            if item["word"].casefold() != word.casefold()
-        ]
+        try:
+            # Удаляем запись через сервис
+            self.vocabulary_service.delete_word(word)
 
-        # Записываем удаление в историю
+        except VocabularyValidationError as error:
+
+            self.show_feedback(
+                str(error),
+                is_error=True
+            )
+            return
+
+        # Записываем действие в историю
         self.activity_log.add_event(
             "Удалено слово",
             f"{word} — {translation}"
         )
 
+        # Обновляем таблицу
         self.refresh_table()
 
-        self.show_feedback("Слово успешно удалено")
+        self.show_feedback(
+            "Слово успешно удалено"
+        )
 
     def refresh_table(self):
 
-        search_text = self.search_input.text().strip().casefold()
+        # Получаем слова из базы данных
+        words = self.vocabulary_service.get_words()
+
+        search_text = (
+            self.search_input.text().strip().casefold()
+        )
 
         # Фильтрация слов
         filtered_words = [
-            item for item in self.words
+            item for item in words
             if search_text in item["word"].casefold()
-            or search_text in item["translation"].casefold()
+               or search_text in item["translation"].casefold()
         ]
 
+        # Настраиваем количество строк
         self.table.setRowCount(len(filtered_words))
 
+        # Заполняем таблицу
         for row, item in enumerate(filtered_words):
+            word_item = QTableWidgetItem(
+                item["word"]
+            )
 
-            word_item = QTableWidgetItem(item["word"])
             translation_item = QTableWidgetItem(
                 item["translation"]
             )
@@ -342,11 +348,18 @@ class VocabularyPage(QWidget):
                 Qt.AlignmentFlag.AlignVCenter
             )
 
-            self.table.setItem(row, 0, word_item)
-            self.table.setItem(row, 1, translation_item)
+            self.table.setItem(
+                row, 0, word_item
+            )
 
+            self.table.setItem(
+                row, 1, translation_item
+            )
+
+        # Обновляем счётчик
         self.word_count.setText(
-            f"Показано: {len(filtered_words)} из {len(self.words)}"
+            f"Показано: {len(filtered_words)} "
+            f"из {len(words)}"
         )
 
     def show_feedback(self, message, is_error=False):

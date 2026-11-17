@@ -6,6 +6,10 @@ from app.services.activity_log import ActivityLog
 from app.ui.pages.history import HistoryPage
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMessageBox
+from app.database.connection import initialize_database
+from app.database.vocabulary_repository import VocabularyRepository
+from app.database.activity_repository import ActivityRepository
+from app.services.vocabulary_service import VocabularyService
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -30,7 +34,19 @@ class MainWindow(QMainWindow):
         self.resize(1100, 700)
         self.setMinimumSize(850, 550)
 
-        self.activity_log = ActivityLog()
+        # Журнал активности
+        self.activity_repository = ActivityRepository()
+
+        self.activity_log = ActivityLog(
+            self.activity_repository
+        )
+
+        # Работа со словарём
+        self.vocabulary_repository = VocabularyRepository()
+
+        self.vocabulary_service = VocabularyService(
+            self.vocabulary_repository
+        )
 
         self.setup_ui()
         self.setup_styles()
@@ -79,7 +95,8 @@ class MainWindow(QMainWindow):
 
         # Создаём словарь заранее
         self.vocabulary_page = VocabularyPage(
-            self.activity_log
+            self.activity_log,
+            self.vocabulary_service
         )
 
         for index, (title, description) in enumerate(sections):
@@ -307,6 +324,10 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
 
+    # Создаём базу данных и таблицы
+    initialize_database()
+
+    # Запускаем графическое приложение
     app = QApplication(sys.argv)
 
     window = MainWindow()

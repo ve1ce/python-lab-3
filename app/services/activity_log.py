@@ -7,30 +7,30 @@ from app.models.activity import ActivityEvent
 
 class ActivityLog(QObject):
 
-    # Сигнал изменения журнала
+    # Сигнал изменения истории
     changed = Signal()
 
-    def __init__(self):
+    def __init__(self, repository):
         super().__init__()
 
-        self._events = []
+        self.repository = repository
 
     def add_event(self, action, details):
 
-        # Создаём новое событие
+        # Создаём событие
         event = ActivityEvent(
             timestamp=datetime.now(),
             action=action,
             details=details
         )
 
-        # Добавляем событие в начало списка
-        self._events.insert(0, event)
+        # Сохраняем его в базе данных
+        self.repository.add_event(event)
 
-        # Сообщаем об изменении журнала
+        # Уведомляем интерфейс
         self.changed.emit()
 
     def get_events(self):
 
-        # Возвращаем копию списка событий
-        return self._events.copy()
+        # Получаем события из базы
+        return self.repository.get_all()
