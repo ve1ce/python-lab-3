@@ -1,0 +1,50 @@
+<p class="subtitle">Обзор вашего прогресса в изучении языков</p>
+
+<div class="stats">
+    {% for label in ("Слов в словаре", "Завершённых тренировок", "Дней активности") %}
+        <div class="card">
+            <p>{{ label }}</p>
+            <strong class="stat-value">{{ counts[loop.index0] }}</strong>
+        </div>
+    {% endfor %}
+</div>
+
+<section class="card">
+    <h2>Активность за неделю</h2>
+    <p>Количество действий за последние 7 дней</p>
+    <div class="week-chart">
+        <div class="chart-scale" aria-hidden="true">
+            {% for tick in scale %}<span>{{ tick }}</span>{% endfor %}
+        </div>
+        <div class="chart-plot">
+            {% for day, count in week %}
+                <div class="chart-bar" style="height: {{ count / scale[0] * 100 }}%">
+                    <span class="chart-count">
+                        <span class="visually-hidden">{{ day.strftime('%d.%m.%Y') }} — </span>{{ count }}
+                    </span>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="chart-days" aria-hidden="true">
+            {% for day, count in week %}<span>{{ day.strftime('%d.%m') }}</span>{% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Последние действия</h2>
+    {% if recent %}
+        <ul class="recent-actions">
+            {% for event in recent %}
+                <li>
+                    <span>{{ event.action }} — {{ event.details }}</span>
+                    <time class="muted" datetime="{{ event.timestamp.isoformat() }}">
+                        {{ event.timestamp.strftime('%d.%m %H:%M') }}
+                    </time>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Пока нет записанных действий</p>
+    {% endif %}
+</section>

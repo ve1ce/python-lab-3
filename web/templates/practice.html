@@ -1,0 +1,63 @@
+<p class="subtitle">Проверьте свои знания английских слов</p>
+
+<section class="card practice-card">
+    {% if session is undefined %}
+        <h2>Тренировка перевода</h2>
+        <p>Выберите уровень сложности тренировки.</p>
+        <form class="practice-buttons" action="/practice/start" method="post">
+            {% for count, label in levels.items() %}
+                <button type="submit" name="count" value="{{ count }}"
+                        {% if word_count < count or translation_count < 4 %}disabled{% endif %}>
+                    {{ label }} — {{ count }} вопросов
+                </button>
+            {% endfor %}
+        </form>
+        <p>Слов в словаре: {{ word_count }}.
+            {% if word_count < 5 %}Для тренировки необходимо минимум 5 слов.{% endif %}
+            {% if translation_count < 4 %}Необходимо минимум 4 разных перевода.{% endif %}
+        </p>
+        {% if unavailable %}
+            <p class="feedback error" role="status">Для выбранного уровня сейчас недостаточно слов или разных переводов.</p>
+        {% endif %}
+    {% else %}
+        {% set total = session.questions|length %}
+        {% set index = session.question_index %}
+        {% set answered = session.selected is not none %}
+        {% if index == total %}
+            <h2>Тренировка завершена</h2>
+            <strong class="practice-result">Правильных ответов: {{ session.score }} из {{ total }}</strong>
+        {% else %}
+            {% set question = session.questions[index] %}
+            <div class="section-header muted">
+                <span>Вопрос {{ index + 1 }} из {{ total }}</span>
+                <span>Верных ответов: {{ session.score }}</span>
+            </div>
+            <progress aria-label="Отвечено вопросов" value="{{ index + answered|int }}" max="{{ total }}"></progress>
+            <p class="question-hint">Выберите перевод слова</p>
+            <h2 class="question-word" lang="en">{{ question.word }}</h2>
+            <form method="post" class="practice-buttons answer-form">
+                <input type="hidden" name="index" value="{{ index }}">
+                {% for option in question.options %}
+                    {% set correct = loop.index0 == question.correct %}
+                    {% set incorrect = loop.index0 == session.selected and not correct %}
+                    <button type="submit" name="choice" value="{{ loop.index0 }}"
+                            class="secondary-button{% if answered and correct %} correct{% elif incorrect %} incorrect{% endif %}"
+                            {% if answered %}disabled{% endif %}>{{ option }}</button>
+                {% endfor %}
+            </form>
+            {% if answered %}
+                <p class="answer-feedback" role="status">
+                    {% if session.selected == question.correct %}Верно!
+                    {% else %}Неверно. Правильный ответ: {{ question.options[question.correct] }}{% endif %}
+                </p>
+            {% endif %}
+            <form class="practice-next" method="post">
+                <input type="hidden" name="index" value="{{ index }}">
+                <button type="submit" {% if not answered %}disabled{% endif %}>
+                    {{ "Завершить тренировку" if index + 1 == total else "Следующий вопрос" }}
+                </button>
+            </form>
+        {% endif %}
+        <a href="/practice" class="secondary-button choose-level">Выбрать уровень</a>
+    {% endif %}
+</section>

@@ -1,0 +1,28 @@
+<section class="card">
+    <div class="section-header">
+        <h2>Журнал активности</h2>
+        <span class="muted">Всего событий: {{ events|length }}</span>
+    </div>
+    {% if events %}
+        <div class="table-container history-table">
+            <table>
+                <thead>
+                    <tr><th>Дата и время</th><th>Действие</th><th>Описание</th></tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                        <tr>
+                            <td><time datetime="{{ event.timestamp.isoformat() }}">
+                                {{ event.timestamp.strftime('%d.%m.%Y %H:%M:%S') }}
+                            </time></td>
+                            <td>{{ event.action }}</td>
+                            <td>{{ event.details }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>Пока нет записанных действий</p>
+    {% endif %}
+</section>
