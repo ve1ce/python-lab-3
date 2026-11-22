@@ -1,2 +1,2 @@
 class VocabularyValidationError(Exception):
-    """Ошибка проверки данных словаря."""
+    """ошибка проверки данных словаря"""

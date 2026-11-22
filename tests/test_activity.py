@@ -1,160 +1,61 @@
-import sqlite3
-
 from datetime import datetime
 
+import psycopg
 import pytest
 
-from app.database import ActivityEvent, ActivityRepository
+from app import database
+from app.exceptions import VocabularyValidationError
 from app.services import ActivityLog
 
 
-def test_empty_activity_history(db_path):
-
-    repository = ActivityRepository(db_path)
-
-    events = repository.get_all()
-
-    assert events == []
+def test_empty_activity_history(db):
+    assert database.ActivityRepository().get_all() == []
 
 
-def test_event_saved_with_timestamp(db_path):
-
-    repository = ActivityRepository(db_path)
-
-    timestamp = datetime(2026, 11, 10, 14, 30, 15)
-
-    event = ActivityEvent(
-        timestamp=timestamp,
-        action="Добавлено слово",
-        details="hello — привет"
-    )
-
-    repository.add_event(event)
-
-    events = repository.get_all()
-
+def test_event_persists_after_reconnection(db):
+    with database.get_connection() as connection:
+        database.record_activity(connection, "Добавлено слово", "hello — привет")
+    events = ActivityLog(database.ActivityRepository()).get_events()
     assert len(events) == 1
-    assert events[0] == event
-
-
-def test_recent_events_first(db_path):
-
-    repository = ActivityRepository(db_path)
-
-    repository.add_event(
-        ActivityEvent(
-            timestamp=datetime(2026, 11, 10, 12, 0),
-            action="Добавлено слово",
-            details="computer — компьютер"
-        )
-    )
-
-    repository.add_event(
-        ActivityEvent(
-            timestamp=datetime(2026, 11, 10, 12, 5),
-            action="Удалено слово",
-            details="computer — компьютер"
-        )
-    )
-
-    events = repository.get_all()
-
-    assert len(events) == 2
-
-    assert events[0].action == "Удалено слово"
-    assert events[1].action == "Добавлено слово"
-
-
-def test_event_persists_after_reconnection(db_path):
-
-    first_repository = ActivityRepository(db_path)
-
-    first_repository.add_event(
-        ActivityEvent(
-            timestamp=datetime(2026, 11, 10, 15, 0),
-            action="Завершена тренировка",
-            details="Правильных ответов: 4 из 5"
-        )
-    )
-
-    # Создаём новый объект репозитория
-    second_repository = ActivityRepository(db_path)
-
-    events = second_repository.get_all()
-
-    assert len(events) == 1
-    assert events[0].action == "Завершена тренировка"
-
-
-def test_activity_log_records_event(db_path):
-
-    repository = ActivityRepository(db_path)
-    activity_log = ActivityLog(repository)
-
-    activity_log.add_event(
-        "Добавлено слово",
-        "book — книга"
-    )
-
-    events = activity_log.get_events()
-
-    assert len(events) == 1
-
-    assert events[0].action == "Добавлено слово"
-    assert events[0].details == "book — книга"
-
+    assert events[0].details == "hello — привет"
     assert isinstance(events[0].timestamp, datetime)
+    assert database.ActivityRepository().get_all() == events
 
 
-def test_activity_log_emits_changed_signal(db_path):
-
-    repository = ActivityRepository(db_path)
-    activity_log = ActivityLog(repository)
-
-    # Список для регистрации сигналов
-    notifications = []
-
-    # Подключаем обработчик
-    activity_log.changed.connect(
-        lambda: notifications.append("changed")
-    )
-
-    activity_log.add_event(
-        "Добавлено слово",
-        "apple — яблоко"
-    )
-
-    # Сигнал должен сработать ровно один раз
-    assert notifications == ["changed"]
-
-    # Событие при этом должно находиться в БД
-    assert len(repository.get_all()) == 1
-
-
-def test_no_signal_when_save_fails():
-
-    # Репозиторий, имитирующий ошибку SQLite
-    class FailingRepository:
-
-        def add_event(self, event):
-            raise sqlite3.OperationalError(
-                "Ошибка записи в базу данных"
+def test_recent_events_first(db):
+    with database.get_connection() as connection:
+        for timestamp, action in [("2026-11-10 12:05", "Новое"), ("2026-11-10 12:00", "Старое")]:
+            connection.execute(
+                "INSERT INTO activities (timestamp, action, details) VALUES (%s, %s, %s)",
+                (timestamp, action, "тест"),
             )
+    assert [event.action for event in database.ActivityRepository().get_all()] == ["Новое", "Старое"]
 
-    activity_log = ActivityLog(FailingRepository())
 
-    notifications = []
+@pytest.mark.parametrize("delete", [False, True])
+def test_word_and_activity_rollback_together(db, monkeypatch, delete):
+    repository = database.VocabularyRepository()
+    before = repository.get_words()
 
-    activity_log.changed.connect(
-        lambda: notifications.append("changed")
-    )
+    def fail(*args):
+        raise psycopg.OperationalError("Ошибка записи события")
 
-    with pytest.raises(sqlite3.OperationalError):
+    monkeypatch.setattr(database, "record_activity", fail)
+    with pytest.raises(psycopg.OperationalError):
+        if delete:
+            repository.delete_word(before[0]["id"])
+        else:
+            repository.add_word("hello", "привет")
+    assert repository.get_words() == before
+    assert database.ActivityRepository().get_all() == []
 
-        activity_log.add_event(
-            "Добавлено слово",
-            "hello — привет"
-        )
 
-    # Если запись не удалась, сигнал не отправляется
-    assert notifications == []
+def test_no_events_for_failed_or_repeated_word_operations(db):
+    repository = database.VocabularyRepository()
+    word_id = repository.get_words()[0]["id"]
+    with pytest.raises(VocabularyValidationError):
+        repository.add_word("APPLE", "дубликат")
+    repository.delete_word(word_id)
+    with pytest.raises(VocabularyValidationError):
+        repository.delete_word(word_id)
+    assert len(database.ActivityRepository().get_all()) == 1

@@ -90,16 +90,14 @@ class VocabularyPage(QWidget):
 
     def add_word(self):
         try:
-            saved_word = self.vocabulary_service.add_word(
+            self.vocabulary_service.add_word(
                 self.word_input.text(), self.translation_input.text()
             )
         except VocabularyValidationError as error:
             self.show_feedback(str(error), is_error=True)
             return
 
-        self.activity_log.add_event(
-            "Добавлено слово", f"{saved_word['word']} — {saved_word['translation']}"
-        )
+        self.activity_log.changed.emit()
         self.word_input.clear()
         self.translation_input.clear()
         if self.search_input.text():
@@ -115,15 +113,14 @@ class VocabularyPage(QWidget):
             return
 
         row = selected_rows[0].row()
-        word = self.table.item(row, 0).text()
-        translation = self.table.item(row, 1).text()
+        word_id = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
         try:
-            self.vocabulary_service.delete_word(word)
+            self.vocabulary_service.delete_word(word_id)
         except VocabularyValidationError as error:
             self.show_feedback(str(error), is_error=True)
             return
 
-        self.activity_log.add_event("Удалено слово", f"{word} — {translation}")
+        self.activity_log.changed.emit()
         self.refresh_table()
         self.show_feedback("Слово успешно удалено")
 
@@ -138,10 +135,12 @@ class VocabularyPage(QWidget):
         for row, item in enumerate(filtered_words):
             for column, key in enumerate(("word", "translation")):
                 cell = QTableWidgetItem(item[key])
+                cell.setData(Qt.ItemDataRole.UserRole, item["id"])
                 cell.setTextAlignment(Qt.AlignmentFlag.AlignVCenter)
                 self.table.setItem(row, column, cell)
         self.word_count.setText(f"Показано: {len(filtered_words)} из {len(words)}")
 
+    #отображение сообщений (слово ... успешно добавлено!)
     def show_feedback(self, message, is_error=False):
         self.feedback_label.setText(message)
         set_style_state(self.feedback_label, "error" if is_error else "success")

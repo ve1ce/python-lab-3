@@ -1,4 +1,3 @@
-from collections import Counter
 from datetime import date, timedelta
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
@@ -6,20 +5,19 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator
 from PySide6.QtWidgets import QHBoxLayout, QWidget
 
-from app.services import PRACTICE_COMPLETED
+from app.database import get_dashboard
 from app.ui.widgets import card, label, page_layout
 
 
 class DashboardPage(QWidget):
-    def __init__(self, get_words, activity_log):
+    def __init__(self, activity_log):
         super().__init__()
-        self.get_words = get_words
         self.activity_log = activity_log
         self.setObjectName("dashboardPage")
         self.setup_ui()
         self.activity_log.changed.connect(self.refresh_dashboard)
         self.refresh_dashboard()
-
+    '''создание 3х блоков: статы, график, посл действия'''
     def setup_ui(self):
         layout = page_layout(
             self, "Главная", "Обзор вашего прогресса в изучении языков",
@@ -28,6 +26,7 @@ class DashboardPage(QWidget):
 
         stats_layout = QHBoxLayout()
         stats_layout.setSpacing(15)
+        #карточки статы
         self.stat_values = {}
         for key, title in (
             ("words", "Слов в словаре"),
@@ -45,6 +44,7 @@ class DashboardPage(QWidget):
         chart_layout.addWidget(label("Активность за неделю", "sectionTitle"))
         self.chart_note = label("", "mutedText")
         chart_layout.addWidget(self.chart_note)
+        #гистограмма
         self.figure = Figure(figsize=(7, 2.8), facecolor="white")
         self.axes = self.figure.add_subplot(111)
         self.chart_canvas = FigureCanvasQTAgg(self.figure)
@@ -68,17 +68,15 @@ class DashboardPage(QWidget):
         layout.addWidget(history_card)
         layout.addStretch()
 
+    '''обновление стр'''
     def refresh_dashboard(self):
-        events = self.activity_log.get_events()
-        events_by_date = Counter(event.timestamp.date() for event in events)
-        sessions = sum(event.action == PRACTICE_COMPLETED for event in events)
-
-        self.stat_values["words"].setText(str(len(self.get_words())))
-        self.stat_values["sessions"].setText(str(sessions))
-        self.stat_values["days"].setText(str(len(events_by_date)))
+        counts, events_by_date, events = get_dashboard(date.today())
+        for key, value in zip(("words", "sessions", "days"), counts):
+            self.stat_values[key].setText(str(value))
         self.refresh_activities(events)
         self.refresh_chart(events_by_date)
 
+    '''обновление последних действий'''
     def refresh_activities(self, events):
         for index, (action_label, time_label) in enumerate(self.activity_rows):
             if index < len(events):
@@ -89,14 +87,15 @@ class DashboardPage(QWidget):
                 action_label.setText("Пока нет записанных действий" if index == 0 else "")
                 time_label.clear()
 
+    #построение графика
     def refresh_chart(self, events_by_date):
         today = date.today()
         dates = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
         weekdays = ("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
         days = [weekdays[day.weekday()] for day in dates]
 
-        if events_by_date:
-            activity = [events_by_date[day] for day in dates]
+        if int(self.stat_values["days"].text()):
+            activity = [events_by_date.get(day, 0) for day in dates]
             self.chart_note.setText("Количество действий за последние 7 дней")
         else:
             activity = [2, 4, 3, 5, 4, 6, 3]

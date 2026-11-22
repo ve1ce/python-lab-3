@@ -20,17 +20,23 @@ STYLE_PATH = Path(__file__).resolve().parent / "app" / "ui" / "styles.qss"
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        #базовые параметры окна
         self.setWindowTitle("Изучение иностранных языков")
         self.resize(1100, 700)
         self.setMinimumSize(850, 550)
 
+        #зависимости
         activity_log = ActivityLog(ActivityRepository())
         vocabulary_service = VocabularyService(VocabularyRepository())
+
+        #создание интерфейса и подгрузка стилей
         self.setup_ui(activity_log, vocabulary_service)
         self.setup_menu()
         self.setStyleSheet(STYLE_PATH.read_text(encoding="utf-8"))
 
+    '''главное окно'''
     def setup_ui(self, activity_log, vocabulary_service):
+        #центральный виджет + горизонтальная компановка элементов
         central_widget = QWidget()
         central_widget.setObjectName("centralWidget")
         main_layout = QHBoxLayout(central_widget)
@@ -46,16 +52,18 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(label("Изучение языков", "appTitle"))
         sidebar_layout.addSpacing(30)
 
+        #создание страниц
         self.nav_group = QButtonGroup(self)
         self.pages = QStackedWidget()
         vocabulary_page = VocabularyPage(activity_log, vocabulary_service)
         get_words = vocabulary_service.get_words
         sections = [
-            ("Главная", DashboardPage(get_words, activity_log)),
+            ("Главная", DashboardPage(activity_log)),
             ("Словарь", vocabulary_page),
             ("Практика", PracticePage(get_words, activity_log)),
             ("История", HistoryPage(activity_log)),
         ]
+        #кнопки навигации
         for index, (title, page) in enumerate(sections):
             nav_button = button(title, "navButton", 42)
             nav_button.setCheckable(True)
@@ -63,14 +71,24 @@ class MainWindow(QMainWindow):
             sidebar_layout.addWidget(nav_button)
             self.pages.addWidget(page)
 
+        self.refresh_pages = (
+            sections[0][1].refresh_dashboard, vocabulary_page.refresh_table,
+            sections[2][1].refresh_levels, sections[3][1].refresh_table,
+        )
         self.nav_group.button(0).setChecked(True)
-        self.nav_group.idClicked.connect(self.pages.setCurrentIndex)
+        self.nav_group.idClicked.connect(self.select_page)
         sidebar_layout.addStretch()
         sidebar_layout.addWidget(label("Лабораторная работа №3", "footer"))
         main_layout.addWidget(sidebar)
         main_layout.addWidget(self.pages, 1)
         self.setCentralWidget(central_widget)
 
+    '''переключение страниц'''
+    def select_page(self, index):
+        self.refresh_pages[index]()
+        self.pages.setCurrentIndex(index)
+
+    '''меню приложения(врехняя строчка)'''
     def setup_menu(self):
         file_menu = self.menuBar().addMenu("Файл")
         exit_action = file_menu.addAction("Выход")
@@ -92,7 +110,7 @@ class MainWindow(QMainWindow):
             "Версия: 1.0",
         )
 
-
+'''точка входа'''
 if __name__ == "__main__":
     initialize_database()
     app = QApplication(sys.argv)

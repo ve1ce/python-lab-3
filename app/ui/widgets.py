@@ -4,20 +4,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-
+'''текстовая надпись с именем объекта'''
 def label(text, name):
     widget = QLabel(text)
     widget.setObjectName(name)
     return widget
 
-
+'''кнопка с именем объекта'''
 def button(text, name, min_height):
     widget = QPushButton(text)
     widget.setObjectName(name)
     widget.setMinimumHeight(min_height)
     return widget
 
-
+'''создание стандартной структуры страницы с заголовком'''
 def page_layout(page, title, subtitle, *, scrollable=False, spacing=20):
     content = page
     if scrollable:
@@ -39,7 +39,7 @@ def page_layout(page, title, subtitle, *, scrollable=False, spacing=20):
     layout.addWidget(label(subtitle, "mutedText"))
     return layout
 
-
+'''создание карточки (отдельный блок информации)'''
 def card(margins=(20, 20, 20, 20), spacing=15):
     frame = QFrame()
     frame.setObjectName("contentCard")
@@ -48,7 +48,7 @@ def card(margins=(20, 20, 20, 20), spacing=15):
     layout.setSpacing(spacing)
     return frame, layout
 
-
+'''таблица для словаря и истории'''
 def read_only_table(headers, row_height, min_height):
     table = QTableWidget(0, len(headers))
     table.setObjectName("dataTable")
@@ -62,7 +62,7 @@ def read_only_table(headers, row_height, min_height):
     table.setMinimumHeight(min_height)
     return table
 
-
+'''динамическое изменение виджетов (правильный/неправильный ответ кнопка)'''
 def set_style_state(widget, state):
     widget.setProperty("state", state)
     # Qt кэширует правила QSS с динамическими свойствами.

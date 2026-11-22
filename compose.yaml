@@ -2,11 +2,11 @@ services:
   db:
     image: postgres:17
     environment:
-      POSTGRES_DB: language_lab
-      POSTGRES_USER: lab_user
+      POSTGRES_DB: ${POSTGRES_DB:-language_lab}
+      POSTGRES_USER: ${POSTGRES_USER:-lab_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

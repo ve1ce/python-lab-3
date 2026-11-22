@@ -1,5 +1,4 @@
 import re
-from contextlib import nullcontext
 from uuid import UUID
 
 import pytest
@@ -68,8 +67,7 @@ def test_practice_disables_unavailable_levels(
 
 def test_main_pages_show_navigation_and_empty_activity(client, monkeypatch):
     monkeypatch.setattr(main, "get_dashboard", lambda today: ((8, 0, 0), {}, []))
-    monkeypatch.setattr(main, "get_connection", nullcontext)
-    monkeypatch.setattr(main, "get_activities", lambda connection: [])
+    monkeypatch.setattr(main.ActivityRepository, "get_all", lambda self: [])
     monkeypatch.setattr(main.repository, "get_words", lambda: make_words(8))
 
     pages = {

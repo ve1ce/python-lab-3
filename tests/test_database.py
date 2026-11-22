@@ -1,66 +1,40 @@
-import sqlite3
+from concurrent.futures import ThreadPoolExecutor
+from uuid import uuid4
 
-from contextlib import closing
-
-from app.database import VocabularyRepository, initialize_database
-
-
-def test_database_tables_created(db_path):
-
-    with closing(sqlite3.connect(db_path)) as connection:
-
-        cursor = connection.execute("""
-            SELECT name
-            FROM sqlite_master
-            WHERE type = 'table'
-        """)
-
-        tables = {
-            row[0] for row in cursor.fetchall()
-        }
-
-    assert "words" in tables
-    assert "activities" in tables
+from app import database
+from app.services import practice_quiz
 
 
-def test_database_initialization_is_idempotent(db_path):
-
-    # Повторно выполняем инициализацию
-    initialize_database(db_path)
-    initialize_database(db_path)
-
-    repository = VocabularyRepository(db_path)
-
-    words = repository.get_all()
-
-    # Начальные данные не должны дублироваться
-    assert len(words) == 8
-
-    apple_count = sum(
-        1 for item in words
-        if item["word"] == "apple"
-    )
-
-    assert apple_count == 1
+def test_database_tables_created(db):
+    with database.get_connection() as connection:
+        tables = {row[0] for row in connection.execute(
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+        )}
+    assert {"words", "activities", "practice_sessions"} <= tables
 
 
-def test_deleted_words_are_not_restored(db_path):
+def test_database_initialization_is_idempotent(db):
+    with database.get_connection() as connection:
+        connection.execute("DROP TABLE practice_sessions, activities, words")
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(lambda _: database.initialize_database(), range(2)))
+    assert len(database.VocabularyRepository().get_words()) == 8
 
-    # Удаляем все слова из тестовой базы
-    with closing(sqlite3.connect(db_path)) as connection:
 
-        with connection:
+def test_deleted_words_are_not_restored(db):
+    with database.get_connection() as connection:
+        connection.execute("DELETE FROM words")
+    database.initialize_database()
+    assert database.VocabularyRepository().get_words() == []
 
-            connection.execute(
-                "DELETE FROM words"
-            )
 
-    # Повторно инициализируем базу
-    initialize_database(db_path)
-
-    repository = VocabularyRepository(db_path)
-
-    words = repository.get_all()
-
-    # Удалённые слова не должны появляться снова
-    assert words == []
+def test_initialization_preserves_existing_data(db):
+    repository = database.VocabularyRepository()
+    repository.add_word("hello", "привет")
+    session_id = uuid4()
+    database.create_practice(session_id, practice_quiz(repository.get_words(), 5))
+    session = database.get_practice(session_id)
+    before = repository.get_words(), database.ActivityRepository().get_all()
+    database.initialize_database()
+    assert (repository.get_words(), database.ActivityRepository().get_all()) == before
+    assert database.get_practice(session_id) == session

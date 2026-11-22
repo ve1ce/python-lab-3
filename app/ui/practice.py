@@ -1,11 +1,10 @@
+from uuid import uuid4
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QProgressBar, QWidget
 
-from app.services import (
-    PRACTICE_COMPLETED,
-    practice_options,
-    practice_questions
-)
+from app.database import create_practice, get_practice, update_practice
+from app.services import PRACTICE_LEVELS, practice_quiz
 
 from app.ui.widgets import (
     button,
@@ -24,7 +23,7 @@ class PracticePage(QWidget):
         self.activity_log = activity_log
 
         self.questions = []
-        self.translations = []
+        self.session_id = None
 
         self.current_index = 0
         self.correct_answers = 0
@@ -74,11 +73,7 @@ class PracticePage(QWidget):
 
         self.level_buttons = {}
 
-        for count, name in (
-            (5, "Лёгкий"),
-            (10, "Средний"),
-            (15, "Сложный")
-        ):
+        for count, name in PRACTICE_LEVELS.items():
             level_button = button(
                 f"{name} — {count} вопросов",
                 "primaryButton",
@@ -248,15 +243,14 @@ class PracticePage(QWidget):
         self.refresh_levels()
 
     def start_practice(self, question_count):
-        self.questions, self.translations = practice_questions(
-            self.get_words(),
-            question_count
-        )
+        self.questions = practice_quiz(self.get_words(), question_count)
 
         if not self.questions:
             self.refresh_levels()
             return
 
+        self.session_id = uuid4()
+        create_practice(self.session_id, self.questions)
         self.current_index = 0
         self.correct_answers = 0
 
@@ -285,10 +279,7 @@ class PracticePage(QWidget):
             f"Верных ответов: {self.correct_answers}"
         )
 
-        options = practice_options(
-            self.translations,
-            question["translation"]
-        )
+        options = question["options"]
 
         for answer, text in zip(self.answer_buttons, options):
             answer.setText(text)
@@ -307,16 +298,18 @@ class PracticePage(QWidget):
         if self.answered:
             return
 
+        choice = self.answer_buttons.index(selected_button)
+        update_practice(self.session_id, self.current_index, choice)
+        session = get_practice(self.session_id)
+        self.correct_answers = session["score"]
         self.answered = True
 
-        correct_translation = (
-            self.questions[self.current_index]["translation"]
-        )
+        question = self.questions[self.current_index]
+        correct_translation = question["options"][question["correct"]]
 
         correct_key = correct_translation.casefold()
 
         if selected_button.text().casefold() == correct_key:
-            self.correct_answers += 1
             self.feedback_label.setText(
                 "Верно! Отличная работа."
             )
@@ -346,7 +339,10 @@ class PracticePage(QWidget):
         if not self.answered:
             return
 
-        self.current_index += 1
+        update_practice(self.session_id, self.current_index, None)
+        session = get_practice(self.session_id)
+        self.current_index = session["question_index"]
+        self.correct_answers = session["score"]
 
         if self.current_index >= len(self.questions):
             self.finish_practice()
@@ -360,7 +356,8 @@ class PracticePage(QWidget):
         )
 
         self.result_label.setText(result)
-        self.activity_log.add_event(PRACTICE_COMPLETED, result)
+        self.answered = False
+        self.activity_log.changed.emit()
 
         self.quiz_card.hide()
         self.finish_card.show()

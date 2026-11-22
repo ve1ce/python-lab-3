@@ -11,9 +11,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.exceptions import VocabularyValidationError
-from app.services import practice_options, practice_questions
-from web.database import (
-    VocabularyRepository, create_practice, get_activities, get_connection,
+from app.services import PRACTICE_LEVELS, practice_quiz
+from app.database import (
+    ActivityRepository, VocabularyRepository, create_practice,
     get_dashboard, get_practice, initialize_database, update_practice,
 )
 
@@ -21,7 +21,7 @@ from web.database import (
 BASE_DIR = Path(__file__).resolve().parent
 repository = VocabularyRepository()
 
-
+'''инициализация FastAPI'''
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     initialize_database()
@@ -49,9 +49,8 @@ PAGES = {
     "/practice": "Практика",
     "/history": "История"
 }
-PRACTICE_LEVELS = {5: "Лёгкий", 10: "Средний", 15: "Сложный"}
 
-
+'''генерация страниц'''
 def render_page(request, path, **context):
     return templates.TemplateResponse(
         request=request,
@@ -78,8 +77,7 @@ def dashboard(request: Request):
 
 @app.get("/history", response_class=HTMLResponse)
 def history(request: Request):
-    with get_connection() as connection:
-        events = get_activities(connection)
+    events = ActivityRepository().get_all()
     return render_page(request, "/history", events=events)
 
 
@@ -98,17 +96,10 @@ def start_practice(count: int = Form()):
     if count not in PRACTICE_LEVELS:
         raise HTTPException(400, "Неизвестный уровень сложности")
 
-    questions, translations = practice_questions(repository.get_words(), count)
-    if not questions:
+    quiz = practice_quiz(repository.get_words(), count)
+    if not quiz:
         return RedirectResponse("/practice?unavailable=1", status_code=303)
 
-    quiz = []
-    for question in questions:
-        options = practice_options(translations, question["translation"])
-        quiz.append({
-            "word": question["word"], "options": options,
-            "correct": options.index(question["translation"]),
-        })
     session_id = uuid4()
     create_practice(session_id, quiz)
     return RedirectResponse(f"/practice/{session_id}", status_code=303)

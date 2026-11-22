@@ -8,7 +8,8 @@ from app.services import VocabularyService
 def test_initial_words(vocabulary_service):
 
     # Получаем слова из базы
-    words = vocabulary_service.get_words()
+    words = [{k: row[k] for k in ("word", "translation")}
+             for row in vocabulary_service.get_words()]
 
     # Проверяем количество начальных слов
     assert len(words) == 8
@@ -29,7 +30,8 @@ def test_add_word(vocabulary_service):
     )
 
     # Получаем обновлённый словарь
-    words = vocabulary_service.get_words()
+    words = [{k: row[k] for k in ("word", "translation")}
+             for row in vocabulary_service.get_words()]
 
     # Проверяем, что слово добавилось
     assert {
@@ -40,7 +42,7 @@ def test_add_word(vocabulary_service):
     assert len(words) == 9
 
 
-def test_word_persistence(db_path, vocabulary_service):
+def test_word_persistence(db, vocabulary_service):
 
     # Добавляем слово с лишними пробелами
     vocabulary_service.add_word(
@@ -49,14 +51,15 @@ def test_word_persistence(db_path, vocabulary_service):
     )
 
     # Создаём новый репозиторий и сервис
-    new_repository = VocabularyRepository(db_path)
+    new_repository = VocabularyRepository()
 
     new_service = VocabularyService(
         new_repository
     )
 
     # Проверяем сохранение данных
-    words = new_service.get_words()
+    words = [{k: row[k] for k in ("word", "translation")}
+             for row in new_service.get_words()]
 
     assert {
         "word": "hello",
@@ -108,9 +111,10 @@ def test_empty_fields(
 def test_delete_word(vocabulary_service):
 
     # Удаляем существующее слово
-    vocabulary_service.delete_word("apple")
+    vocabulary_service.delete_word(vocabulary_service.get_words()[0]["id"])
 
-    words = vocabulary_service.get_words()
+    words = [{k: row[k] for k in ("word", "translation")}
+             for row in vocabulary_service.get_words()]
 
     # Проверяем, что слово удалено
     assert not any(
@@ -130,5 +134,11 @@ def test_delete_missing_word(vocabulary_service):
     ):
 
         vocabulary_service.delete_word(
-            "nonexistent"
+            -1
         )
+
+
+@pytest.mark.parametrize("word, translation", [("a" * 81, "перевод"), ("word", "я" * 81)])
+def test_long_fields(vocabulary_service, word, translation):
+    with pytest.raises(VocabularyValidationError, match="80"):
+        vocabulary_service.add_word(word, translation)
